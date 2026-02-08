@@ -5,22 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import user as crud_user
 from app.db.session import get_db
 from app.core.auth import create_access_token
-from pydantic import BaseModel, EmailStr
+from app.models.user import UserCreate, UserLogin, Token
 
 router = APIRouter()
-
-class Token(BaseModel):
-    token: str
-    user: dict
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
 
 @router.post("/login", response_model=Token)
 async def login(

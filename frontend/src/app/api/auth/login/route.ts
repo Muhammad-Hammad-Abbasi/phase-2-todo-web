@@ -6,6 +6,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    console.log(`[Proxy] Attempting login to: ${BACKEND_URL}/api/v1/auth/login`);
+
     // Call the actual Backend on Render
     const res = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
       method: 'POST',
@@ -13,9 +15,19 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    // Check content type to safely parse JSON
+    const contentType = res.headers.get("content-type");
+    let data;
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      console.error('[Proxy] Non-JSON response from backend:', text);
+      return NextResponse.json({ error: `Backend returned non-JSON error: ${res.status}` }, { status: res.status });
+    }
 
     if (!res.ok) {
+      console.error('[Proxy] Backend error:', data);
       return NextResponse.json({ error: data.detail || 'Invalid credentials' }, { status: res.status });
     }
 
@@ -33,7 +45,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    console.error('Login proxy error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('[Proxy] Login proxy CRITICAL error:', error);
+    return NextResponse.json({ error: 'Internal Server Error (Proxy)' }, { status: 500 });
   }
 }
