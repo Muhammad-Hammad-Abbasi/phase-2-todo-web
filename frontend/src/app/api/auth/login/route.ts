@@ -1,38 +1,39 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { SignJWT } from 'jose';
-import pool from '@/lib/db';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://phase-2-todo-web.onrender.com';
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
 
-    const result = await pool.query('SELECT * FROM "user" WHERE email = $1', [email]);
-    const user = result.rows[0];
+    // Call the actual Backend on Render
+    const res = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json({ error: data.detail || 'Invalid credentials' }, { status: res.status });
     }
 
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
-    const token = await new SignJWT({ sub: user.id, email: user.email })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('24h')
-      .sign(secret);
-
-    const response = NextResponse.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    const response = NextResponse.json(data);
     
-    // Set cookie for Next.js middleware
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24,
-      path: '/',
-    });
+    // Set cookie for Next.js middleware using the token from Render
+    if (data.token) {
+      response.cookies.set('token', data.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24,
+        path: '/',
+      });
+    }
 
     return response;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login proxy error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

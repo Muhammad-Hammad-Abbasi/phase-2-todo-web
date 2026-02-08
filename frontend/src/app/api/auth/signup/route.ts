@@ -1,34 +1,27 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import pool from '@/lib/db';
-import { randomUUID } from 'crypto';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://phase-2-todo-web.onrender.com';
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name } = await request.json();
-    
-    if (!email || !password || !name) {
-       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    const body = await request.json();
+
+    // Call the actual Backend on Render
+    const res = await fetch(`${BACKEND_URL}/api/v1/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json({ error: data.detail || 'Signup failed' }, { status: res.status });
     }
 
-    // Check if user exists
-    const existing = await pool.query('SELECT id FROM "user" WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
-      return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const id = randomUUID();
-    const now = new Date().toISOString();
-
-    await pool.query(
-      'INSERT INTO "user" (id, email, name, password_hash, created_at) VALUES ($1, $2, $3, $4, $5)',
-      [id, email, name, hashedPassword, now]
-    );
-
-    return NextResponse.json({ success: true, userId: id });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Signup proxy error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
