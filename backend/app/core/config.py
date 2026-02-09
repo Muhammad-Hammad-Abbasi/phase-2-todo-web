@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str
     
-    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000"]
+    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "https://phase-2-todo-web-tvww.vercel.app"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
